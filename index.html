@@ -240,28 +240,26 @@
         <div class="instruction-box">
             <strong>📋 Instrucciones:</strong>
             <ol style="margin-top: 10px; margin-left: 20px;">
-                <li>Ingresa el <strong>número de nodos</strong> y el <strong>nodo inicial</strong></li>
-                <li>Haz clic en <strong>"Generar Grafo"</strong> - Los nodos aparecerán en círculo</li>
-                <li><strong>Conecta nodos:</strong> Clic en un nodo, luego en otro para crear una arista con flecha</li>
-                <li>Repite para crear todas las conexiones necesarias</li>
+                <li>El grafo se <strong>carga automáticamente</strong> con 9 nodos y 8 conexiones predefinidas</li>
+                <li><strong>Nodo inicial por defecto: 4</strong> (puedes cambiarlo en el campo "Nodo inicial")</li>
+                <li><strong>Agregar conexiones:</strong> Clic en nodo origen, luego en destino (crea arista dirigida)</li>
                 <li>Haz clic en <strong>"Ejecutar DFS"</strong> para ver la animación del algoritmo</li>
+                <li><strong>"Resetear"</strong> elimina conexiones agregadas y restaura el grafo original</li>
             </ol>
+            <p style="margin-top: 10px;"><strong>📊 Complejidad:</strong> O(V + E) donde V = vértices, E = aristas</p>
+            <p style="margin-top: 5px;"><strong>🎯 Recorrido esperado (nodo 4):</strong> 4 → 1 → 2 → 3 → 8 → 9 → 6 → 5 → 7</p>
+            <p style="margin-top: 5px;"><strong>🔗 Conexiones:</strong> 15 aristas dirigidas predefinidas</p>
         </div>
 
         <div class="control-panel">
             <div class="input-group">
-                <label>Número de nodos:</label>
-                <input type="number" id="numNodos" min="3" max="15" value="6" placeholder="Ej: 6">
-            </div>
-
-            <div class="input-group">
                 <label>Nodo inicial:</label>
-                <input type="number" id="nodoInicial" min="1" value="1" placeholder="Ej: 1">
+                <input type="number" id="nodoInicial" min="1" max="9" value="4" placeholder="Ej: 4">
             </div>
-
-            <div class="input-group" style="margin-top: 25px;">
-                <button onclick="generarGrafo()">🎯 Generar Grafo</button>
-                <button onclick="ejecutarDFS()" id="btnEjecutar" class="btn-execute" disabled>▶️ Ejecutar DFS</button>
+            
+            <div class="input-group" style="margin-top: 10px;">
+                <button onclick="generarGrafo()">🎯 Recargar Grafo Predefinido</button>
+                <button onclick="ejecutarDFS()" id="btnEjecutar" class="btn-execute">▶️ Ejecutar DFS</button>
                 <button onclick="resetear()" class="btn-reset">🔄 Resetear</button>
             </div>
         </div>

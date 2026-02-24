@@ -8,11 +8,12 @@ const ctx = canvas.getContext('2d');
 // Estructura del grafo
 let nodos = [];           // Array de objetos {id, x, y}
 let aristas = [];         // Array de objetos {origen, destino}
+let aristasOriginales = []; // Backup de aristas predefinidas
 let grafo = {};           // Objeto {nodoId: [vecinos ordenados]}
 
 // Control de interacción
 let nodoSeleccionado = null;
-let nodoInicialGlobal = null;
+let nodoInicialActual = 4;   // Nodo inicial (puede cambiar)
 
 // Control de visualización DFS
 let ejecutando = false;
@@ -30,67 +31,107 @@ const COLOR_ARISTA_NORMAL = '#999';
 const COLOR_ARISTA_RECORRIDA = '#4caf50';
 
 // ============================================
-// FUNCIÓN: GENERAR GRAFO
-// Crea los nodos en posiciones circulares
+// INICIALIZACIÓN AL CARGAR LA PÁGINA
+// Carga automáticamente el grafo predefinido
 // ============================================
-function generarGrafo() {
-    const numNodos = parseInt(document.getElementById('numNodos').value);
-    const nodoInicial = parseInt(document.getElementById('nodoInicial').value);
-    
-    // Validaciones
-    if (!numNodos || numNodos < 3 || numNodos > 15) {
-        alert('Por favor ingresa un número de nodos entre 3 y 15');
-        return;
-    }
-    
-    if (!nodoInicial || nodoInicial < 1 || nodoInicial > numNodos) {
-        alert(`El nodo inicial debe estar entre 1 y ${numNodos}`);
-        return;
-    }
-    
+window.addEventListener('DOMContentLoaded', () => {
+    cargarGrafoPredefinido();
+});
+
+// ============================================
+// FUNCIÓN: CARGAR GRAFO PREDEFINIDO
+// Carga los 9 nodos con posiciones fijas y conexiones predefinidas
+// ============================================
+function cargarGrafoPredefinido() {
     // Reiniciar estado
     nodos = [];
     aristas = [];
+    aristasOriginales = [];
     grafo = {};
     nodoSeleccionado = null;
-    nodoInicialGlobal = nodoInicial;
     ejecutando = false;
     nodosVisitados.clear();
     aristasRecorridas = [];
     recorrido = [];
     
-    // Calcular posiciones en círculo usando coordenadas polares
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const radio = Math.min(centerX, centerY) - 80; // Radio del círculo
+    // Posiciones fijas de los 9 nodos según especificación
+    const posiciones = {
+        // Zona izquierda
+        6: { x: 100, y: 300 },   // extremo izquierdo
+        1: { x: 200, y: 150 },   // arriba, centro-izquierda
+        5: { x: 200, y: 300 },   // debajo de 1
+        7: { x: 250, y: 500 },   // parte inferior central-izquierda
+        
+        // Zona central
+        2: { x: 450, y: 150 },   // parte superior central
+        4: { x: 450, y: 300 },   // debajo de 2 (NODO INICIAL)
+        
+        // Zona derecha
+        8: { x: 700, y: 150 },   // parte superior derecha
+        3: { x: 700, y: 300 },   // debajo de 8
+        9: { x: 850, y: 225 }    // extremo derecho
+    };
     
-    for (let i = 0; i < numNodos; i++) {
-        // Ángulo en radianes (distribuir uniformemente)
-        const angulo = (i * 2 * Math.PI / numNodos) - (Math.PI / 2); // -90° para empezar arriba
-        
-        // Conversión de coordenadas polares a cartesianas
-        const x = centerX + radio * Math.cos(angulo);
-        const y = centerY + radio * Math.sin(angulo);
-        
+    // Crear nodos
+    for (let i = 1; i <= 9; i++) {
         nodos.push({
-            id: i + 1,
-            x: x,
-            y: y
+            id: i,
+            x: posiciones[i].x,
+            y: posiciones[i].y
         });
-        
-        grafo[i + 1] = []; // Inicializar lista de adyacencia
+        grafo[i] = [];
     }
+    
+    // Conexiones predefinidas (aristas dirigidas)
+    // Formato: nodo_origen → nodo_destino
+    const conexionesPredefinidas = [
+        [1, 2], [1, 7],           // Nodo 1 → 2, 7
+        [2, 8], [2, 3], [2, 6],   // Nodo 2 → 3, 6, 8
+        [3, 8],                   // Nodo 3 → 8
+        [4, 5], [4, 1], [4, 6], [4, 2], // Nodo 4 → 1, 2, 5, 6
+        [6, 1], [6, 5], [6, 7],   // Nodo 6 → 1, 5, 7
+        [7, 9],                   // Nodo 7 → 9
+        [8, 9]                    // Nodo 8 → 9
+    ];
+    
+    // Crear aristas predefinidas
+    conexionesPredefinidas.forEach(([origen, destino]) => {
+        aristas.push({ origen, destino });
+        grafo[origen].push(destino);
+    });
+    
+    // Ordenar vecinos de cada nodo (menor a mayor) - Importante para DFS
+    Object.keys(grafo).forEach(nodo => {
+        grafo[nodo].sort((a, b) => a - b);
+    });
+    
+    // Guardar backup de aristas originales
+    aristasOriginales = JSON.parse(JSON.stringify(aristas));
     
     // Limpiar displays
     document.getElementById('conjuntoL').innerHTML = 'L = { }';
     document.getElementById('conjuntoA').innerHTML = 'A = { }';
     document.getElementById('pilaVisual').innerHTML = '<div style="text-align: center; color: #999;">Vacía</div>';
-    document.getElementById('proceso').innerHTML = 'Haz clic en los nodos para crear conexiones...';
+    document.getElementById('proceso').innerHTML = `✅ Grafo cargado. Nodo inicial por defecto: <strong>4</strong><br>Haz clic en los nodos para agregar conexiones o ejecuta DFS.`;
     
     document.getElementById('btnEjecutar').disabled = false;
     
     // Dibujar grafo inicial
     dibujarGrafo();
+    
+    console.log('✅ Grafo predefinido cargado');
+    console.log('📊 Nodos:', Object.keys(grafo));
+    console.log('🔗 Grafo (lista de adyacencia):', grafo);
+    console.log('🎯 Nodo inicial por defecto: 4');
+    console.log('📈 Recorrido esperado (nodo 4): 4→1→2→3→8→9→6→5→7');
+}
+
+// ============================================
+// FUNCIÓN: GENERAR GRAFO (mantener por compatibilidad)
+// Esta función ahora carga el grafo predefinido
+// ============================================
+function generarGrafo() {
+    cargarGrafoPredefinido();
 }
 
 // ============================================
@@ -126,7 +167,7 @@ function dibujarGrafo(nodoActual = null) {
         let color = COLOR_NODO_NORMAL;
         
         // Determinar color del nodo
-        if (nodo.id === nodoInicialGlobal && !ejecutando) {
+        if (nodo.id === nodoInicialActual && !ejecutando) {
             color = COLOR_NODO_INICIAL;
         } else if (nodo.id === nodoActual && ejecutando) {
             color = COLOR_NODO_ACTUAL;
@@ -267,14 +308,24 @@ function crearArista(origen, destino) {
 // ============================================
 async function ejecutarDFS() {
     if (nodos.length === 0) {
-        alert('Primero genera el grafo');
+        alert('Primero carga el grafo');
         return;
     }
     
     if (aristas.length === 0) {
-        alert('Crea al menos una conexión entre nodos');
+        alert('El grafo no tiene conexiones');
         return;
     }
+    
+    // Obtener nodo inicial del input
+    const nodoInicialInput = parseInt(document.getElementById('nodoInicial').value);
+    
+    if (!nodoInicialInput || nodoInicialInput < 1 || nodoInicialInput > 9) {
+        alert('El nodo inicial debe estar entre 1 y 9');
+        return;
+    }
+    
+    nodoInicialActual = nodoInicialInput;
     
     // Reiniciar estado
     ejecutando = true;
@@ -286,89 +337,136 @@ async function ejecutarDFS() {
     document.getElementById('proceso').innerHTML = '';
     
     // Inicializar pila con el nodo inicial
-    const pila = [nodoInicialGlobal];
+    const pila = [nodoInicialActual];
     
-    agregarPaso(`<strong>INICIO:</strong> Pila = [${nodoInicialGlobal}]`);
+    agregarPaso(`<strong>🚀 INICIO DFS desde nodo ${nodoInicialActual}:</strong> Pila = [${nodoInicialActual}]`);
     actualizarPilaVisual(pila);
     
-    // Algoritmo DFS
+    // Algoritmo DFS - visita siempre el vecino menor y retrocede cuando no hay más caminos
+    const caminoActual = []; // Mantiene el camino actual para retroceder
+    let ultimoNodoValido = null; // Track del nodo desde donde venimos
+    
     while (pila.length > 0) {
-        // Esperar para animación
         await sleep(1000);
         
-        // Sacar nodo de la pila (LIFO - Last In First Out)
         const nodoActual = pila.pop();
         actualizarPilaVisual(pila);
         
-        // Si ya fue visitado, continuar
+        agregarPaso(`<strong>POP:</strong> Sacando nodo ${nodoActual} de la pila`);
+        
         if (nodosVisitados.has(nodoActual)) {
-            agregarPaso(`Nodo <span class="highlight">${nodoActual}</span> ya visitado, continuar...`);
+            agregarPaso(`❌ Nodo <span class="highlight">${nodoActual}</span> ya visitado, descartado`);
+            await sleep(800);
             continue;
         }
         
         // Marcar como visitado
         nodosVisitados.add(nodoActual);
         recorrido.push(nodoActual);
+        caminoActual.push(nodoActual);
         
-        agregarPaso(`<strong>Visitando nodo ${nodoActual}</strong>`);
+        // Registrar arista: buscar desde qué nodo del camino actual llegamos
+        if (recorrido.length > 1 && ultimoNodoValido !== null) {
+            aristasRecorridas.push({
+                origen: ultimoNodoValido,
+                destino: nodoActual
+            });
+        }
         
-        // Actualizar conjunto L
+        agregarPaso(`✅ <strong>Visitando nodo ${nodoActual}</strong>`);
+        
+        // Actualizar conjuntos
         document.getElementById('conjuntoL').innerHTML = 
             `L = { ${recorrido.join(', ')} }`;
         
-        // Dibujar estado actual
-        dibujarGrafo(nodoActual);
-        await sleep(800);
-        
-        // Obtener vecinos ordenados de menor a mayor
-        const vecinos = grafo[nodoActual] || [];
-        
-        if (vecinos.length > 0) {
-            agregarPaso(`Vecinos de ${nodoActual}: [${vecinos.join(', ')}]`);
-            
-            // Agregar vecinos no visitados a la pila en orden INVERSO
-            // (para que el menor quede arriba de la pila)
-            const vecinosNoVisitados = vecinos.filter(v => !nodosVisitados.has(v));
-            const vecinosInversos = [...vecinosNoVisitados].reverse();
-            
-            vecinosInversos.forEach(vecino => {
-                if (!pila.includes(vecino)) {
-                    pila.push(vecino);
-                    
-                    // Registrar arista recorrida
-                    aristasRecorridas.push({
-                        origen: nodoActual,
-                        destino: vecino
-                    });
-                }
-            });
-            
-            if (vecinosNoVisitados.length > 0) {
-                agregarPaso(`Agregados a la pila: [${vecinosNoVisitados.join(', ')}]`);
-            }
-        } else {
-            agregarPaso(`Nodo ${nodoActual} no tiene vecinos`);
-        }
-        
-        agregarPaso(`Pila = [${pila.join(', ')}]`);
-        actualizarPilaVisual(pila);
-        
-        // Actualizar conjunto A
         const aristasTexto = aristasRecorridas.map(
             a => `(${a.origen},${a.destino})`
         ).join(', ');
         document.getElementById('conjuntoA').innerHTML = 
             `A = { ${aristasTexto} }`;
         
+        dibujarGrafo(nodoActual);
+        await sleep(800);
+        
+        // Obtener vecinos no visitados
+        const vecinos = grafo[nodoActual] || [];
+        const vecinosNoVisitados = vecinos.filter(v => !nodosVisitados.has(v));
+        
+        if (vecinos.length > 0) {
+            agregarPaso(`🔍 Vecinos de ${nodoActual}: [${vecinos.join(', ')}]`);
+        }
+        
+        if (vecinosNoVisitados.length > 0) {
+            // Hay vecinos no visitados: ir al menor
+            const vecinoMenor = Math.min(...vecinosNoVisitados);
+            agregarPaso(`➡️ Siguiente: nodo <span class="highlight">${vecinoMenor}</span> (menor no visitado)`);
+            
+            pila.push(vecinoMenor);
+            ultimoNodoValido = nodoActual; // Este nodo es el origen del siguiente
+            agregarPaso(`<strong>PUSH:</strong> Agregando nodo ${vecinoMenor} a la pila`);
+        } else {
+            // No hay vecinos no visitados: retroceder
+            agregarPaso(`⚠️ No hay vecinos no visitados - Retrocediendo...`);
+            
+            // Eliminar el nodo actual del camino
+            caminoActual.pop();
+            
+            // Retroceder hasta encontrar un nodo con vecinos no visitados
+            let encontrado = false;
+            for (let i = caminoActual.length - 1; i >= 0 && !encontrado; i--) {
+                const nodoRetroceso = caminoActual[i];
+                const vecinosRetroceso = grafo[nodoRetroceso] || [];
+                const vecinosDisponibles = vecinosRetroceso.filter(v => !nodosVisitados.has(v));
+                
+                if (vecinosDisponibles.length > 0) {
+                    // Encontramos un nodo con vecinos disponibles
+                    const siguienteVecino = Math.min(...vecinosDisponibles);
+                    agregarPaso(`🔙 Retrocediendo al nodo ${nodoRetroceso}, siguiente: ${siguienteVecino}`);
+                    
+                    pila.push(siguienteVecino);
+                    ultimoNodoValido = nodoRetroceso; // El nodo al que retrocedimos es el origen
+                    agregarPaso(`<strong>PUSH:</strong> Agregando nodo ${siguienteVecino} a la pila`);
+                    encontrado = true;
+                }
+            }
+            
+            if (!encontrado && recorrido.length < nodos.length) {
+                agregarPaso(`⚠️ No se encontraron más caminos desde el recorrido actual`);
+            }
+        }
+        
+        agregarPaso(`📚 Pila actual = [${pila.join(', ') || 'vacía'}]`);
+        actualizarPilaVisual(pila);
         dibujarGrafo();
     }
     
     // Finalizar
-    agregarPaso('<strong style="color: #4caf50;">✅ DFS COMPLETADO</strong>');
-    agregarPaso(`Recorrido final: ${recorrido.join(' → ')}`);
+    agregarPaso('<strong style="color: #4caf50;">✅ DFS COMPLETADO - Pila vacía</strong>');
+    agregarPaso(`<strong>📊 Recorrido final:</strong> ${recorrido.join(' → ')}`);
+    agregarPaso(`<strong>📈 Nodos visitados:</strong> ${recorrido.length} de ${nodos.length}`);
+    
+    // Mostrar resumen final
+    const resumen = `
+        <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-top: 10px;">
+            <strong>📊 RESUMEN DEL RECORRIDO DFS</strong><br><br>
+            <strong>Nodo inicial:</strong> ${nodoInicialActual}<br>
+            <strong>L =</strong> {${recorrido.join(', ')}}<br>
+            <strong>A =</strong> {${aristasRecorridas.map(a => `(${a.origen},${a.destino})`).join(', ')}}<br>
+            <strong>Total nodos visitados:</strong> ${recorrido.length}/${nodos.length}<br>
+            <strong>Total aristas recorridas:</strong> ${aristasRecorridas.length}
+        </div>
+    `;
+    agregarPaso(resumen);
     
     ejecutando = false;
     document.getElementById('btnEjecutar').disabled = false;
+    
+    // Mantener el grafo con las aristas recorridas resaltadas
+    dibujarGrafo();
+    
+    console.log('✅ DFS completado');
+    console.log('L =', recorrido);
+    console.log('A =', aristasRecorridas.map(a => `(${a.origen},${a.destino})`));
 }
 
 // ============================================
@@ -414,28 +512,48 @@ function actualizarPilaVisual(pila) {
 
 // ============================================
 // FUNCIÓN: RESETEAR
-// Limpia todo y reinicia el estado
+// Elimina aristas agregadas manualmente y restaura el grafo original
 // ============================================
 function resetear() {
-    nodos = [];
-    aristas = [];
-    grafo = {};
-    nodoSeleccionado = null;
-    nodoInicialGlobal = null;
+    if (nodos.length === 0) {
+        cargarGrafoPredefinido();
+        return;
+    }
+    
     ejecutando = false;
+    nodoSeleccionado = null;
     nodosVisitados.clear();
     aristasRecorridas = [];
     recorrido = [];
     
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Restaurar aristas originales
+    aristas = JSON.parse(JSON.stringify(aristasOriginales));
     
-    document.getElementById('numNodos').value = '6';
-    document.getElementById('nodoInicial').value = '1';
+    // Reconstruir grafo desde aristas originales
+    grafo = {};
+    for (let i = 1; i <= 9; i++) {
+        grafo[i] = [];
+    }
+    
+    aristas.forEach(arista => {
+        grafo[arista.origen].push(arista.destino);
+    });
+    
+    // Ordenar vecinos
+    Object.keys(grafo).forEach(nodo => {
+        grafo[nodo].sort((a, b) => a - b);
+    });
+    
+    // Limpiar displays
     document.getElementById('conjuntoL').innerHTML = 'L = { }';
     document.getElementById('conjuntoA').innerHTML = 'A = { }';
     document.getElementById('pilaVisual').innerHTML = '<div style="text-align: center; color: #999;">Vacía</div>';
-    document.getElementById('proceso').innerHTML = 'Esperando inicio del algoritmo...';
-    document.getElementById('btnEjecutar').disabled = true;
+    document.getElementById('proceso').innerHTML = `🔄 Grafo reseteado. Nodo inicial actual: <strong>${nodoInicialActual}</strong><br>Listo para ejecutar DFS.`;
+    document.getElementById('btnEjecutar').disabled = false;
+    
+    dibujarGrafo();
+    
+    console.log('🔄 Grafo reseteado a configuración original');
 }
 
 // ============================================
