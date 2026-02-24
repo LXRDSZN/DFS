@@ -5,6 +5,10 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
+// Canvas para el grafo resultante
+let canvasResultado = null;
+let ctxResultado = null;
+
 // Estructura del grafo
 let nodos = [];           // Array de objetos {id, x, y}
 let aristas = [];         // Array de objetos {origen, destino}
@@ -464,6 +468,11 @@ async function ejecutarDFS() {
     // Mantener el grafo con las aristas recorridas resaltadas
     dibujarGrafo();
     
+    // Dibujar el grafo resultante con solo las aristas recorridas
+    setTimeout(() => {
+        dibujarGrafoResultante();
+    }, 1000);
+    
     console.log('✅ DFS completado');
     console.log('L =', recorrido);
     console.log('A =', aristasRecorridas.map(a => `(${a.origen},${a.destino})`));
@@ -551,9 +560,133 @@ function resetear() {
     document.getElementById('proceso').innerHTML = `🔄 Grafo reseteado. Nodo inicial actual: <strong>${nodoInicialActual}</strong><br>Listo para ejecutar DFS.`;
     document.getElementById('btnEjecutar').disabled = false;
     
+    // Ocultar grafo resultante
+    document.getElementById('grafoResultante').style.display = 'none';
+    
     dibujarGrafo();
     
     console.log('🔄 Grafo reseteado a configuración original');
+}
+
+// ============================================
+// FUNCIÓN: DIBUJAR GRAFO RESULTANTE
+// Dibuja el grafo resultante mostrando solo las aristas recorridas
+// ============================================
+function dibujarGrafoResultante() {
+    // Obtener canvas resultante
+    canvasResultado = document.getElementById('canvasResultado');
+    if (!canvasResultado) return;
+    
+    ctxResultado = canvasResultado.getContext('2d');
+    
+    // Mostrar sección del grafo resultante
+    document.getElementById('grafoResultante').style.display = 'block';
+    
+    // Limpiar canvas
+    ctxResultado.clearRect(0, 0, canvasResultado.width, canvasResultado.height);
+    
+    // Crear un grafo temporal solo con las aristas recorridas
+    const aristasRecorridasSet = new Set(
+        aristasRecorridas.map(a => `${a.origen}-${a.destino}`)
+    );
+    
+    // Dibujar solo las aristas recorridas
+    aristasRecorridas.forEach(arista => {
+        const origen = nodos.find(n => n.id === arista.origen);
+        const destino = nodos.find(n => n.id === arista.destino);
+        
+        if (origen && destino) {
+            dibujarFlechaEnCanvas(
+                ctxResultado,
+                origen.x, origen.y,
+                destino.x, destino.y,
+                COLOR_ARISTA_RECORRIDA,
+                3
+            );
+        }
+    });
+    
+    // Dibujar todos los nodos (visitados en verde, no visitados en gris claro)
+    nodos.forEach(nodo => {
+        let color = '#e0e0e0'; // Gris claro para no visitados
+        
+        if (nodosVisitados.has(nodo.id)) {
+            if (nodo.id === nodoInicialActual) {
+                color = COLOR_NODO_INICIAL; // Rojo para nodo inicial
+            } else {
+                color = COLOR_NODO_VISITADO; // Verde para visitados
+            }
+        }
+        
+        dibujarNodoEnCanvas(ctxResultado, nodo.x, nodo.y, nodo.id, color);
+    });
+    
+    // Scroll suave hacia el grafo resultante
+    setTimeout(() => {
+        document.getElementById('grafoResultante').scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+        });
+    }, 500);
+}
+
+// ============================================
+// FUNCIÓN: DIBUJAR NODO EN CANVAS ESPECÍFICO
+// ============================================
+function dibujarNodoEnCanvas(context, x, y, id, color) {
+    // Círculo exterior
+    context.beginPath();
+    context.arc(x, y, RADIO_NODO, 0, 2 * Math.PI);
+    context.fillStyle = color;
+    context.fill();
+    context.strokeStyle = '#333';
+    context.lineWidth = 3;
+    context.stroke();
+    
+    // Texto (número del nodo)
+    context.fillStyle = 'white';
+    context.font = 'bold 20px Arial';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(id, x, y);
+}
+
+// ============================================
+// FUNCIÓN: DIBUJAR FLECHA EN CANVAS ESPECÍFICO
+// ============================================
+function dibujarFlechaEnCanvas(context, x1, y1, x2, y2, color, grosor) {
+    // Calcular ángulo de la línea
+    const angulo = Math.atan2(y2 - y1, x2 - x1);
+    
+    // Ajustar puntos para que la flecha termine en el borde del nodo
+    const x1Ajustado = x1 + RADIO_NODO * Math.cos(angulo);
+    const y1Ajustado = y1 + RADIO_NODO * Math.sin(angulo);
+    const x2Ajustado = x2 - RADIO_NODO * Math.cos(angulo);
+    const y2Ajustado = y2 - RADIO_NODO * Math.sin(angulo);
+    
+    // Dibujar línea
+    context.beginPath();
+    context.moveTo(x1Ajustado, y1Ajustado);
+    context.lineTo(x2Ajustado, y2Ajustado);
+    context.strokeStyle = color;
+    context.lineWidth = grosor;
+    context.stroke();
+    
+    // Dibujar punta de flecha
+    const tamañoFlecha = 15;
+    context.beginPath();
+    context.moveTo(x2Ajustado, y2Ajustado);
+    context.lineTo(
+        x2Ajustado - tamañoFlecha * Math.cos(angulo - Math.PI / 6),
+        y2Ajustado - tamañoFlecha * Math.sin(angulo - Math.PI / 6)
+    );
+    context.lineTo(
+        x2Ajustado - tamañoFlecha * Math.cos(angulo + Math.PI / 6),
+        y2Ajustado - tamañoFlecha * Math.sin(angulo + Math.PI / 6)
+    );
+    context.closePath();
+    context.fillStyle = color;
+    context.fill();
 }
 
 // ============================================
